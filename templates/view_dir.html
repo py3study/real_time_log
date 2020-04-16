@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    <title>文件列表</title>
+{% endblock title %}
+{% block content %}
+    <div class="panel panel-success">
+        <!-- Default panel contents -->
+        <div class="panel-heading">
+            <div style="font-size: 18px">
+                服务器: <span style="color: red" id="ip">{{ ip }}</span>
+                当前目录: <span style="color: red">{{ dir_path }}</span>
+                <span class="pull-right"><a class="pull-right" href="#"
+                                            onClick="javascript :history.back(-1);">返回上一页</a></span>
+            </div>
+        </div>
+
+        <div style="height: 10px"></div>
+        <div class="col-lg-6 pull-right" style="margin-bottom: 10px">
+            <div class="input-group">
+                <input type="text" class="form-control" id="search" placeholder="关键字">
+                <span class="input-group-btn">
+            <button class="btn btn-primary" type="button" id="search_submit" dir_name="{{ dir }}">搜索</button>
+          </span>
+            </div><!-- /input-group -->
+        </div><!-- /.col-lg-6 -->
+
+        <!-- Table -->
+        <table class="table table-bordered" style="border:1px solid #ddd">
+            <thead>
+            <tr>
+                <th>序号</th>
+                <th>文件类型</th>
+                <th>文件大小</th>
+                <th>文件时间</th>
+                <th>文件名</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in log_list %}
+                <tr>
+                    <th scope="row">{{ forloop.counter }}</th>
+                    <td>{{ item.type }}</td>
+                    <td>{{ item.size }}</td>
+                    <td>{{ item.time }}</td>
+                    <td>{{ item.name }}</td>
+                    <td>
+                        {% if item.type == 'dir' %}
+                            {% if not dir %}
+                                <button type="button" class="btn btn-primary view_dir" dir_name="{{ item.name }}">
+                                    进入
+                                </button>
+                            {% else %}
+                                <button type="button" class="btn btn-primary view_dir"
+                                        dir_name="{{ dir }}/{{ item.name }}">
+                                    进入
+                                </button>
+                            {% endif %}
+
+                        {% else %}
+
+                            {% if item.view == '1' %}
+                                <a href="/view_log/{{ herf_prefix }}&file_name={{ item.name }}" target="_blank"
+                               class="btn btn-info download" file_name="{{ dir }}/{{ item.name }}">查看</a>
+                            {% endif %}
+                            <a href="/download/{{ herf_prefix }}&file_name={{ item.name }}"
+                               class="btn btn-success pull-right download" file_name="{{ dir }}/{{ item.name }}">下载</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if not log_list %}
+        <span style="color: red">结果为空</span>
+    {% endif %}
+
+    {#分页展示#}
+    <nav aria-label="Page navigation">
+        <ul class="pagination">
+            <li><a href="{{ herf_prefix }}&page=1" aria-label="Previous"><span aria-hidden="true">首页</span></a>
+            </li>
+
+            {#has_previous 判断是否有上一页#}
+            {% if log_list.has_previous %}
+                {#previous_page_number 上一页的页码#}
+                <li><a href="{{ herf_prefix }}&page={{ log_list.previous_page_number }}" aria-label="Previous"><span
+                        aria-hidden="true">上一页</span></a></li>
+            {% else %}
+                {#class="disabled" 禁止用户点击#}
+                <li class="disabled"><a href="" aria-label="Previous"><span aria-hidden="true">上一页</span></a></li>
+            {% endif %}
+
+            {#遍历页码的列表#}
+            {% for i in pageRange %}
+                {#判断当前页码数等于底部页码时#}
+                {% if current_num == i %}
+                    {#增加class,加深按钮#}
+                    <li class="active"><a href="{{ herf_prefix }}&page={{ i }}">{{ i }}</a></li>
+                {% else %}
+                    {#href参数为简写,它会自动获取当前路径，并拼接参数#}
+                    <li><a href="{{ herf_prefix }}&page={{ i }}">{{ i }}</a></li>
+                {% endif %}
+
+            {% endfor %}
+
+            {#has_next 判断是否有下一页#}
+            {% if log_list.has_next %}
+                {#next_page_number 下一页的页码#}
+                <li><a href="{{ herf_prefix }}&page={{ log_list.next_page_number }}" aria-label="Next"><span
+                        aria-hidden="true">下一页</span></a></li>
+            {% else %}
+                {#class="disabled" 禁止用户点击#}
+                <li class="disabled"><a href="" aria-label="Next"><span aria-hidden="true">下一页</span></a></li>
+            {% endif %}
+
+            <li><a href="{{ herf_prefix }}&page={{ paginator.num_pages }}" aria-label="Next"><span
+                    aria-hidden="true">最后一页</span></a></li>
+
+        </ul>
+    </nav>
+
+    <script>
+        $('.view_dir').click(function () {
+            let csrf = $("[name=csrfmiddlewaretoken]").val().trim();
+            let ip = $('#ip').text().trim();
+            let dir = $(this).attr('dir_name').trim();
+            console.log(ip, dir);
+            {#return false;#}
+
+            $.ajax({  //发送ajax请求
+                url: '/dir_json/',
+                type: "post",
+                data: {
+                    'ip': ip,
+                    'dir': dir,
+                    csrfmiddlewaretoken: csrf,
+                },
+                success: function (arg) {
+                    arg = JSON.parse(arg);
+                    console.log(arg);
+                    //return false;
+                    if (arg.code == "200") { //判断json的状态
+                        {#swal({#}
+                        {#    title: '成功',#}
+                        {#    type: 'success',  //展示成功的图片#}
+                        {#    timer: 500,  //延时500毫秒#}
+                        {#    showConfirmButton: false  //关闭确认框#}
+                        {# }, function () {#}
+                        {#    window.location.href = arg.url;  //跳转后台首页#}
+                        {# });#}
+                        window.location.href = arg.url;
+                    } else {
+                        swal("失败！", arg.error, "error");
+                    }
+                },
+                error: function () {
+                    swal("失败！", "网络请求错误!", "error");
+                }
+            });
+        });
+
+        //搜索
+        $('#search_submit').click(function () {
+            let csrf = $("[name=csrfmiddlewaretoken]").val();
+            let ip = $('#ip').text().trim();
+            let dir = $(this).attr('dir_name').trim();
+            let key = $('#search').val().trim();
+            if (key.length == 0) {
+                swal("错误！", "关键字不能为空!", "error");
+                return false
+            }
+            console.log("搜索",ip,dir,key);
+            // 发送ajax请求
+            $.ajax({  //发送ajax请求
+                url: '/dir_json/',
+                type: "post",
+                data: {
+                    'ip': ip,
+                    'dir': dir,
+                    'key': key,
+                    csrfmiddlewaretoken: csrf,
+                },
+                success: function (arg) {
+                    arg = JSON.parse(arg);
+                    console.log(arg);
+                    //return false;
+                    if (arg.code == "200") { //判断json的状态
+                        {#swal({#}
+                        {#    title: '成功',#}
+                        {#    type: 'success',  //展示成功的图片#}
+                        {#    timer: 500,  //延时500毫秒#}
+                        {#    showConfirmButton: false  //关闭确认框#}
+                        {# }, function () {#}
+                        {#    window.location.href = arg.url;  //跳转后台首页#}
+                        {# });#}
+                        window.location.href = arg.url;
+                    } else {
+                        swal("失败！", arg.error, "error");
+                    }
+                },
+                error: function () {
+                    swal("失败！", "网络请求错误!", "error");
+                }
+            });
+        });
+
+
+    </script>
+{% endblock content %}

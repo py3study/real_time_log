@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    <title>首页</title>
+{% endblock title %}
+{% block content %}
+    <div style="font-size: 18px">
+        <span>ip：{{ ip }}</span><br/>
+        <span>文件：{{ log_file }}</span>
+    </div>
+    <br>
+    <button class="btn btn-success" id="view_logs">
+        查看实时日志
+    </button>
+    <button class="btn btn-danger" id="close_logs" style="margin-left: 40px;">
+        关闭实时日志
+    </button>
+
+    <input type="hidden" id="logs_ip" value="{{ ip }}">
+    <input type="hidden" id="logs_dir" value="{{ dir }}">
+    <input type="hidden" id="logs_file_name" value="{{ file_name }}">
+
+    <h3>结果展示:</h3>
+    <div style="height: 600px;overflow: auto;" id="content_logs">
+      <div id="messagecontainer" style="font-size: 16px;">
+        </div>
+    </div>
+
+    <div style="height: 30px"></div>
+    <div>
+        <button class="btn btn-info pull-right" id="to_top">
+            回到顶部
+        </button>
+    </div>
+
+    <script type="text/javascript">
+        var is_click = false;
+
+
+        // 关闭实时日志
+        function close_logs() {
+            let csrf = $("[name=csrfmiddlewaretoken]").val().trim();
+            let ip = $('#logs_ip').val();
+            let dir = $('#logs_dir').val();
+            let file_name = $('#logs_file_name').val();
+            $.ajax({  //发送ajax请求
+                url: '/close_log/',
+                type: "post",
+                data: {
+                    'ip': ip,
+                    'dir': dir,
+                    'file_name': file_name,
+                    csrfmiddlewaretoken: csrf,
+                },
+                success: function (arg) {
+                    //arg = JSON.parse(arg);
+                    console.log(arg);
+                },
+                error: function () {
+                    console.log("网络请求错误");
+                }
+            });
+        }
+
+        $('#view_logs').click(function () {
+            if (is_click == true) {
+                swal("错误", "不能重复点击", "error");
+                return false
+            }
+
+
+
+            console.log("点击了");
+            let ip = $('#logs_ip').val();
+            let dir = $('#logs_dir').val();
+            let file_name = $('#logs_file_name').val();
+            var socket = new WebSocket("ws://" + window.location.host + "/real_time_log/?ip=" + ip + "&dir=" + dir + "&file_name=" + file_name);
+            console.log(socket);
+            // 打开连接
+            socket.onopen = function () {
+                is_click = true;
+                console.log('WebSocket open');//成功连接上Websocket
+                socket.send('view_logs');//发送数据到服务端
+            };
+            // 接收数据
+            socket.onmessage = function (e) {
+                console.log('message: ' + e.data);//打印服务端返回的数据
+                //$('#messagecontainer').prepend('<p><pre>' + e.data + '</pre></p>');
+                //$('#messagecontainer').prepend('<hr />');
+
+                if (e.data.length > 0) {
+                    if (e.data != 'empty') {
+                        $('#messagecontainer').append(e.data + '<br/>');
+                    } else {
+                        $('#messagecontainer').append('错误，文件内容为空！' + '<br/>');
+                    }
+                }
+
+                {#$('#messagecontainer').prepend('<hr />');#}
+                //滚动条自动到最底部
+                $("#content_logs").scrollTop($("#content_logs")[0].scrollHeight);
+                //window.scrollTo(0, document.body.scrollHeight);
+
+            };
+            // 关闭事件
+            socket.onclose = function (e) {
+                console.log("connection closed", e);
+                close_logs();
+            };
+        });
+
+        // 点击关闭实时日志
+        $('#close_logs').click(function () {
+            if (is_click == false) {
+                swal("错误", "请先点击查看，再点击关闭", "error");
+                return false
+            }
+            let csrf = $("[name=csrfmiddlewaretoken]").val().trim();
+            let ip = $('#logs_ip').val();
+            let dir = $('#logs_dir').val();
+            let file_name = $('#logs_file_name').val();
+            $.ajax({  //发送ajax请求
+                url: '/close_log/',
+                type: "post",
+                data: {
+                    'ip': ip,
+                    'dir': dir,
+                    'file_name': file_name,
+                    csrfmiddlewaretoken: csrf,
+                },
+                success: function (arg) {
+                    arg = JSON.parse(arg);
+                    console.log(arg);
+                    //return false;
+                    if (arg.code == "200") { //判断json的状态
+                        swal({
+                            title: '成功',
+                            type: 'success',  //展示成功的图片
+                            timer: 500,  //延时500毫秒
+                            showConfirmButton: false  //关闭确认框
+                        }, function () {
+                            // 刷新当前页面
+                            window.location.reload();
+                        });
+                        //window.location.href = arg.url;
+                    } else {
+                        swal("失败！", arg.error, "error");
+                    }
+                },
+                error: function () {
+                    swal("失败！", "网络请求错误!", "error");
+                }
+            });
+        });
+
+        //关闭页面时
+        window.onbeforeunload = function () {
+            //return '确定要离开吗？';
+            close_logs();
+        };
+
+
+        //首先将#btn隐藏
+        $("#to_top").hide();
+        //当滚动条的位置处于距顶部50像素以下时，跳转链接出现，否则消失
+        $(window).scroll(function () {
+            if ($(window).scrollTop() > 50) {
+                $("#to_top").fadeIn(200);
+            } else {
+                $("#to_top").fadeOut(200);
+            }
+        });
+        //当点击跳转链接后，回到页面顶部位置
+        $("#to_top").click(function () {
+            $('body,html').animate({
+                    scrollTop: 0
+                },
+                500);
+            return false;
+        });
+
+    </script>
+{% endblock content %}
